@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 
-// Define styles for PDF content
+// (The InvoicePDF component and its styles remain exactly the same as before)
+// ... styles definition ...
 const styles = StyleSheet.create({
   page: {
     padding: 20,
@@ -165,7 +166,6 @@ const styles = StyleSheet.create({
   }
 });
 
-// Create Invoice PDF Document component
 const InvoicePDF = ({ invoiceData, invoiceType }) => {
   const branchTransferAddress = "264, T.V.NAGAR, VELLAKOIL, Vellakoil, Tiruppur, Tamil Nadu, 638111";
   
@@ -212,7 +212,6 @@ const InvoicePDF = ({ invoiceData, invoiceType }) => {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             {companyLogo && <Image src={companyLogo} style={styles.logo} />}
@@ -230,8 +229,6 @@ const InvoicePDF = ({ invoiceData, invoiceType }) => {
             </View>
           </View>
         </View>
-
-        {/* Company Info */}
         <View style={styles.infoSection}>
           <View style={{ width: '60%' }}>
             <Text><Text style={{ fontWeight: 'bold' }}>GSTIN:</Text> {companyGstin}</Text>
@@ -246,8 +243,6 @@ const InvoicePDF = ({ invoiceData, invoiceType }) => {
             <Text><Text style={{ fontWeight: 'bold' }}>Invoice Date:</Text> {invoiceDate}</Text>
           </View>
         </View>
-
-        {/* Customer Info */}
         <View style={styles.infoSection}>
           <View style={styles.infoBox}>
             <View style={styles.infoHeader}><Text>Details of Receiver / Billed to:</Text></View>
@@ -270,8 +265,6 @@ const InvoicePDF = ({ invoiceData, invoiceType }) => {
             </View>
           </View>
         </View>
-
-        {/* Items Table */}
         <View style={styles.table}>
           <View style={[styles.tableRow, styles.tableHeader]}>
             <View style={[styles.tableCol, styles.colSNo]}><Text>S. No.</Text></View>
@@ -309,8 +302,6 @@ const InvoicePDF = ({ invoiceData, invoiceType }) => {
             <View style={[styles.tableCol, styles.colAmount]}><Text style={{ fontWeight: 'bold' }}>{subtotal.toFixed(2)}</Text></View>
           </View>
         </View>
-
-        {/* Bottom Section */}
         <View style={{ flexDirection: 'row', marginTop: 5, flexGrow: 1 }}>
           <View style={{ width: '50%', paddingRight: 5, display: 'flex', flexDirection: 'column' }}>
             <Text style={{ fontWeight: 'bold', marginBottom: 2 }}>Total Invoice amount in words:</Text>
@@ -325,7 +316,6 @@ const InvoicePDF = ({ invoiceData, invoiceType }) => {
             <View style={styles.termItem}><Text style={{ fontSize: 8 }}>Interest @ 24% p.a. will be charged if bill is not paid within 30 days.</Text></View>
             <View style={styles.termItem}><Text style={{ fontSize: 8 }}>Subject to Salem Jurisdiction.</Text></View>
           </View>
-          
           <View style={{ width: '50%', paddingLeft: 5, display: 'flex', flexDirection: 'column' }}>
             <View style={styles.table}>
               <View style={styles.tableRow}><View style={[styles.tableCol, { width: '70%' }]}><Text>Add: CGST @ {cgstRate}%</Text></View><View style={[styles.tableCol, { width: '30%' }]}><Text style={{ textAlign: 'right' }}>{cgstAmount.toFixed(2)}</Text></View></View>
@@ -352,6 +342,7 @@ const InvoicePDF = ({ invoiceData, invoiceType }) => {
     </Document>
   );
 };
+
 
 function InvoiceTemplate() {
   const [invoiceData, setInvoiceData] = useState(null);
@@ -423,20 +414,16 @@ function InvoiceTemplate() {
         <Card.Body className="d-flex justify-content-center align-items-center flex-wrap gap-2">
           <Button variant="primary" onClick={() => window.print()}>🖨️ Print Invoice</Button>
           
-          {/* **FIX**: This section now conditionally enables/disables the download button */}
-          {invoiceType === 'BRANCH TRANSFER' ? (
-            <PDFDownloadLink 
-              document={<InvoicePDF invoiceData={invoiceDataWithImages} invoiceType={invoiceType} />} 
-              fileName={`Invoice-${invoiceData.invoiceNumber || 'details'}.pdf`}
-              className="btn btn-success"
-            >
-              {({ loading }) => (loading ? 'Generating PDF...' : '📄 Download PDF')}
-            </PDFDownloadLink>
-          ) : (
-            <Button variant="success" disabled>
-              📄 Download PDF
-            </Button>
-          )}
+          {/* ======================= FIX: Added a key prop here ======================= */}
+          <PDFDownloadLink 
+            key={invoiceType} // This key forces the component to re-render when invoiceType changes
+            document={<InvoicePDF invoiceData={invoiceDataWithImages} invoiceType={invoiceType} />} 
+            fileName={`${invoiceType.replace(' ', '-')}-${invoiceData.invoiceNumber || 'details'}.pdf`}
+            className="btn btn-success"
+          >
+            {({ loading }) => (loading ? 'Generating PDF...' : '📄 Download PDF')}
+          </PDFDownloadLink>
+          {/* =============================== End of FIX =============================== */}
 
           <Button variant="secondary" onClick={() => navigate('/')}>✏️ Back to Editor</Button>
           
@@ -535,7 +522,7 @@ function InvoiceTemplate() {
             <Table bordered size="sm"><tbody>
               <tr><td>Add: CGST @ {invoiceData.cgstRate || 0}%</td><td className="text-end">₹{(invoiceData.cgstAmount || 0).toFixed(2)}</td></tr>
               <tr><td>Add: SGST @ {invoiceData.sgstRate || 0}%</td><td className="text-end">₹{(invoiceData.sgstAmount || 0).toFixed(2)}</td></tr>
-              <tr><td>Add: IGST @ {invoiceData.igstRate || 0}%</td><td className="text-end">₹{(invoiceData.igstAmount || 0).toFixed(2)}</td></tr>
+              <tr><td>Add: IGST @ {invoiceData.igstRate || 0}%</td><td className="text-end">₹{(invoiceData.igstRate || 0).toFixed(2)}</td></tr>
               <tr><td>Total Tax</td><td className="text-end">₹{((invoiceData.cgstAmount || 0) + (invoiceData.sgstAmount || 0) + (invoiceData.igstAmount || 0)).toFixed(2)}</td></tr>
               <tr><td>Round Off { (invoiceData.roundOff || 0) >= 0 ? '(+)' : '(-)'}</td><td className="text-end">₹{Math.abs(invoiceData.roundOff || 0).toFixed(2)}</td></tr>
               <tr className="fw-bold table-light"><td>Total Amount</td><td className="text-end">₹{(invoiceData.grandTotal || 0).toFixed(2)}</td></tr>
