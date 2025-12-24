@@ -4,6 +4,29 @@ import { useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 
+// Simple ErrorBoundary to catch runtime errors around PDF link (web UI)
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null, info: null };
+  }
+  componentDidCatch(error, info) {
+    console.error('ErrorBoundary caught an error:', error, info);
+    this.setState({ error, info });
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="alert alert-danger" role="alert">
+          <strong>Error:</strong> {this.state.error.message || String(this.state.error)}
+          <pre style={{ whiteSpace: 'pre-wrap' }}>{this.state.info?.componentStack}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // (The InvoicePDF component and its styles remain exactly the same as before)
 // ... styles definition ...
 const styles = StyleSheet.create({
@@ -168,6 +191,8 @@ const styles = StyleSheet.create({
 
 const InvoicePDF = ({ invoiceData, invoiceType }) => {
   const branchTransferAddress = "264, T.V.NAGAR, VELLAKOIL, Vellakoil, Tiruppur, Tamil Nadu, 638111";
+
+
   
   const {
     companyName = "SENDHUR TRADERS",
@@ -204,8 +229,13 @@ const InvoicePDF = ({ invoiceData, invoiceType }) => {
     signatureImage = null
   } = invoiceData;
   
-  const displayAddress = invoiceType === 'BRANCH TRANSFER' ? branchTransferAddress : companyAddress;
-  const addressLines = displayAddress.split('\n');
+  let displayAddress = companyAddress;
+  if (invoiceType === 'BRANCH TRANSFER') {
+    displayAddress = branchTransferAddress;
+  } else if (invoiceType === 'TAX INVOICE') {
+    // show branch address below company address for TAX INVOICE
+    displayAddress = companyAddress + '\n' + branchTransferAddress;
+  }
   const phoneLines = companyPhone.split('\n');
   const emptyRowsNeeded = Math.max(0, 8 - items.length);
 
@@ -218,7 +248,18 @@ const InvoicePDF = ({ invoiceData, invoiceType }) => {
             <View style={styles.headerText}>
               <Text style={styles.companyName}>{companyName}</Text>
               <Text style={styles.companyTagline}>{companyTagline}</Text>
-              {addressLines.map((line, i) => (<Text key={i}>{line}</Text>))}
+              {invoiceType === 'BRANCH TRANSFER' ? (
+                <>
+                  <Text style={{ fontWeight: 'bold' }}>Branch address:</Text>
+                  {branchTransferAddress.split('\n').map((line, i) => (<Text key={`b-${i}`}>{line}</Text>))}
+                </>
+              ) : (
+                <>
+                  {companyAddress.split('\n').map((line, i) => (<Text key={`c-${i}`}>{line}</Text>))}
+                  <Text style={{ fontWeight: 'bold' }}>Branch address:</Text>
+                  {branchTransferAddress.split('\n').map((line, i) => (<Text key={`b-${i}`}>{line}</Text>))}
+                </>
+              )}
             </View>
           </View>
           <View style={styles.headerRight}>
@@ -405,7 +446,13 @@ function InvoiceTemplate() {
   };
   
   const branchTransferAddress = "264, T.V.NAGAR, VELLAKOIL, Vellakoil, Tiruppur, Tamil Nadu, 638111";
-  const displayAddress = invoiceType === 'BRANCH TRANSFER' ? branchTransferAddress : (invoiceData.companyAddress || "");
+  let displayAddress = invoiceData.companyAddress || "";
+  if (invoiceType === 'BRANCH TRANSFER') {
+    displayAddress = branchTransferAddress;
+  } else if (invoiceType === 'TAX INVOICE') {
+    // show branch address below company address for TAX INVOICE
+    displayAddress = (invoiceData.companyAddress || "") + '\n' + branchTransferAddress;
+  }
   
   return (
     <Container fluid className="p-3 bg-light">
@@ -415,14 +462,16 @@ function InvoiceTemplate() {
           <Button variant="primary" onClick={() => window.print()}>🖨️ Print Invoice</Button>
           
           {/* ======================= FIX: Added a key prop here ======================= */}
-          <PDFDownloadLink 
-            key={invoiceType} // This key forces the component to re-render when invoiceType changes
-            document={<InvoicePDF invoiceData={invoiceDataWithImages} invoiceType={invoiceType} />} 
-            fileName={`${invoiceType.replace(' ', '-')}-${invoiceData.invoiceNumber || 'details'}.pdf`}
-            className="btn btn-success"
-          >
-            {({ loading }) => (loading ? 'Generating PDF...' : '📄 Download PDF')}
-          </PDFDownloadLink>
+          <ErrorBoundary>
+            <PDFDownloadLink 
+              key={invoiceType} // This key forces the component to re-render when invoiceType changes
+              document={<InvoicePDF invoiceData={invoiceDataWithImages} invoiceType={invoiceType} />} 
+              fileName={`${invoiceType.replace(' ', '-')}-${invoiceData.invoiceNumber || 'details'}.pdf`}
+              className="btn btn-success"
+            >
+              {({ loading }) => (loading ? 'Generating PDF...' : '📄 Download PDF')}
+            </PDFDownloadLink>
+          </ErrorBoundary>
           {/* =============================== End of FIX =============================== */}
 
           <Button variant="secondary" onClick={() => navigate('/')}>✏️ Back to Editor</Button>
@@ -451,7 +500,18 @@ function InvoiceTemplate() {
             <div>
               <h2 className="text-primary mb-0">{invoiceData.companyName || "SENDHUR TRADERS"}</h2>
               <p className="fw-bold mb-0">{invoiceData.companyTagline || "TRADING OF ALL KINDS OF SCRAPS"}</p>
-              {displayAddress.split('\n').map((line, i) => (<p key={i} className="mb-0 small">{line}</p>))}
+              {invoiceType === 'BRANCH TRANSFER' ? (
+                <>
+                  <p className="mb-0 small"><strong>Branch address:</strong></p>
+                  {branchTransferAddress.split('\n').map((line, i) => (<p key={`b-${i}`} className="mb-0 small">{line}</p>))}
+                </>
+              ) : (
+                <>
+                  {(invoiceData.companyAddress || "").split('\n').map((line, i) => (<p key={`c-${i}`} className="mb-0 small">{line}</p>))}
+                  <p className="mb-0 small"><strong>Branch address:</strong></p>
+                  {branchTransferAddress.split('\n').map((line, i) => (<p key={`b-${i}`} className="mb-0 small">{line}</p>))}
+                </>
+              )}
             </div>
           </div>
           <div className="text-end">
